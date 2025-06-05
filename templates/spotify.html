@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<h2>Connect a Spotify account</h2>
+<p class="text-center mt-2">To use this app, you need to connect your Spotify account.</p>
+<p class="text-center mt-2">Click the button below to connect your Spotify account.</p>
+<form method="POST" action="{{ url_for('spotify_auth') }}">
+    <button type="submit" class="btn btn-primary">Connect Spotify</button>
+</form>
+<p class="text-center mt-2">Already connected? <a href="{{ url_for('home') }}">Go to Dashboard</a></p>
+{% endblock %}

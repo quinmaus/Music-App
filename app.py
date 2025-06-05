@@ -2,12 +2,22 @@ from flask import *
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import requests
+import base64
+from urllib.parse import urlencode
 
 app = Flask(__name__, static_url_path='/static', static_folder='static', template_folder='templates')
 
 app.config['SECRET_KEY'] = "123"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db' # SQLite database file will be users.db
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+CLIENT_ID = "8e510e1809544a978d4d6544317096a8"
+CLIENT_SECRET = "54bd47d0133f48189fe9c1b550afdfbf"
+REDIRECT_URI = "https://45-33-115-242.ip.linodeusercontent.com/callback"
+
+AUTH_URL = "https://accounts.spotify.com/authorize"
+TOKEN_URL = "https://accounts.spotify.com/api/token"
+API_BASE_URL = "https://api.spotify.com/v1/"
 
 db = SQLAlchemy(app)
 class User(db.Model):
@@ -102,6 +112,71 @@ def home():
     username = session.get('username', 'Guest')
     return render_template('home.html', username=username)
 
+@app.route("/spotify")
+def spotify():
+    if 'user_id' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    
+    return render_template('spotify.html')
+@app.route("/spcnt")
+def spotify_auth():
+    if 'user_id' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    scope = "user-read-private user-read-email playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify user-follow-modify user-follow-read user-read-playback-position user-top-read user-read-recently-played user-read-playback-state user-modify-playback-state app-remote-control streaming user-read-currently-playing"
+    params = {
+        'client_id': CLIENT_ID,
+        'response_type': 'code',
+        'scope': scope,
+        'redirect_uri': REDIRECT_URI,
+    }
+    auth_url = f"{AUTH_URL}?{urlencode(params)}"
+    return redirect(auth_url)
+
+@app.route("/callback")
+def callback():
+    if 'error' in request.args:
+        return f"Error: {request.args['error']}"
+
+    if 'code' in request.args:
+        req_body = {
+            'code': request.args['code'],
+            'grant_type': 'authorization_code',
+            'redirect_uri': REDIRECT_URI,
+        }
+        auth_header = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+        headers = {'Authorization': f'Basic {auth_header}'}
+
+        response = requests.post(TOKEN_URL, data=req_body, headers=headers)
+        token_info = response.json()
+
+        if 'access_token' in token_info:
+            access_token = token_info['access_token']
+            refresh_token = token_info.get('refresh_token')
+            expires_in = token_info.get('expires_in')
+
+            user_id = session.get('user_id')
+            if user_id:
+                spot_details = SpotDetails.query.filter_by(spot_userid=user_id).first()
+                if not spot_details:
+                    spot_details = SpotDetails(spot_name='Spotify', spot_userid=user_id)
+                spot_details.spot_token = access_token
+                spot_details.spot_refresh_token = refresh_token
+                spot_details.spot_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+
+                db.session.add(spot_details)
+                db.session.commit()
+
+                flash('Spotify authentication successful!', 'success')
+                return redirect(url_for('home'))
+            else:
+                flash('User not found.', 'danger')
+                return redirect(url_for('login'))
+        else:
+            return "Failed to retrieve access token."
+
+    return "Something went wrong during callback."
 @app.route("/logout")
 def logout():
     session.pop('user_id', None)
