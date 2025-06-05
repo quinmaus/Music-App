@@ -20,6 +20,7 @@ API_BASE_URL = "https://api.spotify.com/v1/"
 
 USERS_FILE = 'users.json'
 SPOT_FILE = 'spotdetails.json'
+GROUPS_FILE = 'groups.json'
 
 def load_json(filename):
     if not os.path.exists(filename):
@@ -57,10 +58,51 @@ def set_spotdetails(username, token, refresh_token, expiry):
         'spot_expiry': expiry.isoformat()
     }
     save_json(SPOT_FILE, spots)
+def get_groups():
+    if not os.path.exists(GROUPS_FILE):
+        return {}
+    with open(GROUPS_FILE, 'r') as f:
+        return json.load(f)
+
+def add_group(group_name, member_usernames, admin_username=None):
+    groups = get_groups()
+    if group_name in groups:
+        return False
+    groups[group_name] = {
+        'member_usernames': member_usernames,
+        'admin_username': admin_username
+    }
+    with open(GROUPS_FILE, 'w') as f:
+        json.dump(groups, f, indent=2)
+    return True
+
+def get_group_members(group_name):
+    groups = get_groups()
+    group = groups.get(group_name)
+    if group:
+        return {
+            'name': group_name,
+            'member_usernames': group.get('member_usernames', []),
+            'admin_username': group.get('admin_username')
+        }
+    return None
+
+# Sample function to add a group and list its members
+def sample_add_and_list_group():
+    group_name = input("Enter group name: ")
+    members_input = input("Enter members (comma separated): ")
+    members = [m.strip() for m in members_input.split(",") if m.strip()]
+    if add_group(group_name, members):
+        print(f"Group '{group_name}' added.")
+    else:
+        print(f"Group '{group_name}' already exists.")
+    print(f"Members of '{group_name}':")
+    for member in members:
+        print(member)
 
 @app.route("/")
 def slash():
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
 
 @app.route("/signup", methods=['GET', 'POST'])
 def signup():
@@ -135,7 +177,42 @@ def home():
     if not display_name:
         display_name = username
     return render_template('home.html', username=username, display_name=display_name)
+@app.route("/groups")
+def groups():
+    if 'username' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    if 'spot_token' not in session or 'spot_expiry' not in session:
+        flash('You need to authenticate with Spotify first.', 'warning')
+        return redirect(url_for('spotify'))
+    username = session['username']
+    groups = get_groups()
+    user_groups = [group for group, members in groups.items() if username in members]
+    return render_template('groups.html', user_groups=user_groups)
 
+@app.route("/cg", methods=['GET', 'POST'])
+def create_group():
+    if 'username' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        group_name = request.form['group_name']
+        members_input = request.form['members']
+        members = [m.strip() for m in members_input.split(",") if m.strip()]
+        admin_username = session['username']
+        if admin_username not in members:
+            members.append(admin_username)
+        admin_username = session['username']
+        if not group_name or not members:
+            flash('Group name and members are required.', 'danger')
+            return render_template('create_group.html')
+        if add_group(group_name, members, admin_username):
+            flash(f'Group "{group_name}" created successfully!', 'success')
+            return redirect(url_for('groups'))
+        else:
+            flash(f'Group "{group_name}" already exists.', 'danger')
+    return render_template('create_group.html')
+    
 @app.route("/spotify")
 def spotify():
     if 'username' not in session:

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Your Groups</h2>
+    {% if user_groups %}
+        <ul>
+            {% for group in user_groups %}
+                <li>{{ group }}</li>
+                <a href="/group/{{ group }}">View Group</a>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>You are not a member of any groups.</p>
+    {% endif %}
+    <form action="/cg" method="post">
+        <label for="group_name">Create New Group:</label>
+        <input type="text" id="group_name" name="group_name" required>
+        <input type="text" id="members" name="members" placeholder="Enter usernames separated by commas" required>
+        <button type="submit">Create Group</button>
+    </form>
+{% endblock %}
