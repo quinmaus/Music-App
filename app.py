@@ -143,7 +143,7 @@ def spotify():
         return redirect(url_for('login'))
     return render_template('spotify.html')
 
-@app.route("/spcnt")
+@app.route("/spcnt", methods=['GET', 'POST'])
 def spotify_auth():
     if 'username' not in session:
         flash('You need to log in first.', 'warning')
