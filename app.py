@@ -186,8 +186,8 @@ def groups():
         flash('You need to authenticate with Spotify first.', 'warning')
         return redirect(url_for('spotify'))
     username = session['username']
-    groups = get_groups()
-    user_groups = [group for group, members in groups.items() if username in members]
+    groups_data = get_groups()
+    user_groups = [group_name for group_name, group_info in groups_data.items() if username in group_info.get('member_usernames', [])]
     return render_template('groups.html', user_groups=user_groups)
 
 @app.route("/cg", methods=['GET', 'POST'])
