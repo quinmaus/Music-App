@@ -21,6 +21,7 @@ API_BASE_URL = "https://api.spotify.com/v1/"
 USERS_FILE = 'users.json'
 SPOT_FILE = 'spotdetails.json'
 GROUPS_FILE = 'groups.json'
+CHALLENGES_FILE = 'challenges.json'
 
 def load_json(filename):
     if not os.path.exists(filename):
@@ -87,6 +88,31 @@ def get_group_members(group_name):
         }
     return None
 
+def add_challenge(group_name, challenge, challenge_type, challenge_data):
+    if not os.path.exists(CHALLENGES_FILE):
+        challenges_data = {}
+    else:
+        with open(CHALLENGES_FILE, 'r') as f:
+            challenges_data = json.load(f)
+    # Ensure the group has a list to store challenges
+    if group_name not in challenges_data or not isinstance(challenges_data[group_name], list):
+        challenges_data[group_name] = []
+    # Append the new challenge as a dictionary
+    challenges_data[group_name].append({
+        'challenge': challenge,
+        'type': challenge_type,
+        'data': challenge_data
+    })
+    with open(CHALLENGES_FILE, 'w') as f:
+        json.dump(challenges_data, f, indent=2)
+    return True
+
+def get_challenges(group_name):
+    if not os.path.exists(CHALLENGES_FILE):
+        return []
+    with open(CHALLENGES_FILE, 'r') as f:
+        challenges_data = json.load(f)
+    return challenges_data.get(group_name, [])
 # Sample function to add a group and list its members
 def sample_add_and_list_group():
     group_name = input("Enter group name: ")
@@ -199,7 +225,8 @@ def group_details(group_name):
     if not group:
         flash(f'Group "{group_name}" does not exist.', 'danger')
         return redirect(url_for('groups'))
-    return render_template('group_details.html', group=group)
+    return render_template('group_details.html', group=group, challenges=get_challenges(group_name))
+
 @app.route("/cg", methods=['GET', 'POST'])
 def create_group():
     if 'username' not in session:
