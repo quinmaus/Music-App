@@ -98,6 +98,14 @@ def login():
             session['user_id'] = user.id
             session['username'] = user.username
             flash('Login successful!', 'success')
+            spot_details = SpotDetails.query.filter_by(spot_userid=user.id).first()
+            if not spot_details:
+                flash('You need to authenticate with Spotify first.', 'warning')
+                return redirect(url_for('spotify'))
+            else:
+                session['spot_token'] = spot_details.spot_token
+                session['spot_refresh_token'] = spot_details.spot_refresh_token
+                session['spot_expiry'] = spot_details.spot_expiry.isoformat()
             return redirect(url_for('home'))
         else:
             flash('Invalid username or password.', 'danger')
@@ -110,7 +118,22 @@ def home():
         return redirect(url_for('login'))
     
     username = session.get('username', 'Guest')
-    return render_template('home.html', username=username)
+    if 'spot_token' not in session or 'spot_expiry' not in session:
+        flash('You need to authenticate with Spotify first.', 'warning')
+        return redirect(url_for('spotify'))
+    
+    headers = {
+        'Authorization': f"Bearer {session['access_token']}"
+    }
+    response = requests.get(f"{API_BASE_URL}me", headers=headers)
+    if response.status_code != 200:
+        flash('Failed to fetch user data from Spotify.', 'danger')
+        return redirect(url_for('spotify'))
+    user_data = response.json()
+    display_name = user_data.get('display_name', 'Unknown User')
+    if not display_name:
+        display_name = username
+    return render_template('home.html', username=username, display_name=display_name)
 
 @app.route("/spotify")
 def spotify():
