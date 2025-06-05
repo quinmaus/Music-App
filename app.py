@@ -207,11 +207,12 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
-def create_tables():
+def create_tables_if_needed():
     with app.app_context():
+        # You could add more sophisticated checks here if needed
+        # For instance, inspect(db.engine).has_table("user")
         db.create_all()
 
 if __name__ == "__main__":
-    if not os.path.exists('users.db'):
-        create_tables()
+    create_tables_if_needed()
     app.run(debug=True)
