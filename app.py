@@ -212,7 +212,6 @@ def create_tables():
         db.create_all()
 
 if __name__ == "__main__":
-    app.run(debug=True)
     if not os.path.exists('users.db'):
         create_tables()
-        
+    app.run(debug=True)
