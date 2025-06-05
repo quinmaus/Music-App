@@ -190,6 +190,16 @@ def groups():
     user_groups = [group_name for group_name, group_info in groups_data.items() if username in group_info.get('member_usernames', [])]
     return render_template('groups.html', user_groups=user_groups)
 
+@app.route("/group/<group_name>")
+def group_details(group_name):
+    if 'username' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    group = get_group_members(group_name)
+    if not group:
+        flash(f'Group "{group_name}" does not exist.', 'danger')
+        return redirect(url_for('groups'))
+    return render_template('group_details.html', group=group)
 @app.route("/cg", methods=['GET', 'POST'])
 def create_group():
     if 'username' not in session:
