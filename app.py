@@ -221,12 +221,60 @@ def group_details(group_name):
     if 'username' not in session:
         flash('You need to log in first.', 'warning')
         return redirect(url_for('login'))
-    group = get_group_members(group_name)
+    group_members = get_group_members(group_name)
     if not group:
         flash(f'Group "{group_name}" does not exist.', 'danger')
         return redirect(url_for('groups'))
-    return render_template('group_details.html', group=group, challenges=get_challenges(group_name))
+    challenge_raw_data = get_challenges(group_name)
+    challenges = []
+    for challenge in challenge_raw_data:
+        data = challenge['data']
+        # Get the first two letters of the data string if it's a string
+        if isinstance(data, str):
+            first_two = data[:2]
+        else:
+            first_two = ''
+        if first_two == 'lt':
+            trackid = data[2:]
+            headers = {
+                'Authorization': f"Bearer {session['spot_token']}"
+            }
+            track_response = requests.get(f"{API_BASE_URL}tracks/{trackid}", headers=headers)
+            if track_response.status_code == 200:
+                track_info = track_response.json()
+                track_name = track_info.get('name', 'Unknown Track')
+                data = "Listen to " + track_name
+                ch = "Listen to a track"
+            else:
+                data = 'Unable to get challenge information.'
 
+        challenges.append({
+            'challenge': challenge['challenge'],
+            'type': challenge['type'],
+            'ch': ch,
+            'data': data
+        })
+    return render_template('group_details.html', group_mem=group_members, gn=group_name, challenges=challenges, group_admin=group_members.get('admin_username'))
+
+@app.route("/add_challenge", methods=['GET', 'POST'])
+def add_challenge():
+    if 'username' not in session:
+        flash('You need to log in first.', 'warning')
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        group_name = request.form['group_name']
+        challenge = request.form['challenge']
+        challenge_type = request.form['challenge_type']
+        challenge_data = request.form['challenge_data']
+        if not group_name or not challenge or not challenge_type or not challenge_data:
+            flash('All fields are required.', 'danger')
+            return redirect(url_for('group_details', group_name=group_name))
+        if add_challenge(group_name, challenge, challenge_type, challenge_data):
+            flash(f'Challenge "{challenge}" added successfully!', 'success')
+            return redirect(url_for('group_details', group_name=group_name))
+        else:
+            flash(f'Failed to add challenge "{challenge}".', 'danger')
+    return redirect(url_for('groups'))
 @app.route("/cg", methods=['GET', 'POST'])
 def create_group():
     if 'username' not in session:
@@ -242,13 +290,13 @@ def create_group():
         admin_username = session['username']
         if not group_name or not members:
             flash('Group name and members are required.', 'danger')
-            return render_template('create_group.html')
+            return render_template('groups.html')
         if add_group(group_name, members, admin_username):
             flash(f'Group "{group_name}" created successfully!', 'success')
             return redirect(url_for('groups'))
         else:
             flash(f'Group "{group_name}" already exists.', 'danger')
-    return render_template('create_group.html')
+    return render_template('groups.html')
     
 @app.route("/spotify")
 def spotify():

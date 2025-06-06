@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ gn }} - Group Page{% endblock %}
+
+{% block content %}
+<h2>{{ gn }}</h2>
+
+{% if group_members %}
+    <h3>Members:</h3>
+    <ul>
+        {% for member in group_members %}
+            <li>{{ member }}</li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No members in this group.</p>
+{% endif %}
+
+<h3>Group Challenges:</h3>
+{% if challenges %}
+    <ul>
+        {% for challenge in challenges %}
+            <li>
+                <a href="">{{ challenge.challenge }}</a>
+                <span class="badge badge-secondary"><h3>{{ challenge.ch }}</h3></span>
+                <span class="badge badge-secondary"><p>{{ challenge.data }}</h3></span>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No challenges in this group.</p>
+{% endif %}
+
+{% if session['username'] == group_admin %}
+    <p>Logged in as Group Admin</p>
+    <h1>Admin Center:</h1>
+    <form action="/add_challenge" method="post">
+        <label for="challenge">Challenge Name:</label>
+        <input type="text" id="challenge" name="challenge" required>
+        <label for="type">Challenge Type:</label>
+        <select id="type" name="type" required>
+            <option>Listen to Track</option>
+        </select>
+        <input type="hidden" name="group_name" value="{{ gn }}">
+        <button type="submit">Add Challenge</button>
+{% endif %}
+{% endif %}
